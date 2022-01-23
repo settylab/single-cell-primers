@@ -1,2 +1,2 @@
-# single-cell-primers
+# Single-cell primers
 Primers for single-cell data analysis
