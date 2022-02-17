@@ -39,15 +39,15 @@ proj <- ArchRProject(
 
 
 # ################################################################################################
-# PReprocesing
+# Preprocesing
 
 # SVD, Clustering, UMAP
-res <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", 
+proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", 
                        name = "IterativeLSI", scaleDims=FALSE, force=TRUE)#, varFeatures=100000)
-proj <- res[[1]]
-var_features <- res[[2]]
 
-# GEne scores with selected features
+var_features <- proj@reducedDims[["IterativeLSI"]]$LSIFeatures
+
+# Gene scores with selected features
 # Artificial black list to exclude all non variable features
 chrs <- getChromSizes(proj)
 var_features_gr <- GRanges(var_features$seqnames, IRanges(var_features$start, var_features$start + 500))
