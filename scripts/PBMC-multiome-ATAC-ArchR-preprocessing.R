@@ -56,10 +56,9 @@ proj <- subsetArchRProject(proj, multiome_cells, proj_name)
 # PReprocesing
 
 # SVD, Clustering, UMAP
-res <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", 
+proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", 
                        name = "IterativeLSI", scaleDims=FALSE, force=TRUE)#, varFeatures=100000)
-proj <- res[[1]]
-var_features <- res[[2]]
+var_features <- proj@reducedDims[["IterativeLSI"]]$LSIFeatures
 
 # GEne scores with selected features
 # Artificial black list to exclude all non variable features
