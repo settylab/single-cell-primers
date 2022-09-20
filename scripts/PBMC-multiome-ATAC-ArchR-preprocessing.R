@@ -26,8 +26,7 @@ ArrowFiles <- createArrowFiles(
   filterFrags =3000, 
   addTileMat = TRUE,
   addGeneScoreMat = FALSE,
-  excludeChr = c('chrM'),
-  removeFilteredCells = TRUE
+  excludeChr = c('chrM')
 )
 
 
