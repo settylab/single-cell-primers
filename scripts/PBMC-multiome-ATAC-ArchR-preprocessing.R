@@ -10,44 +10,47 @@ addArchRGenome('hg38')
 # Arrow files and project 
 
 # Input files
-data_dir = <Directory containing the ATAC fragments file>
-dir.create(sprintf("%s/ArchR", data_dir))
-setwd(sprintf("%s/ArchR", data_dir))
-inputFiles <- c(sprintf("%s/pbmc_unsorted_10k_atac_fragments.tsv.gz", data_dir)
-              )
-names(inputFiles) <- c('pbmc_multiome'
+data_dir = '/fh/fast/setty_m/grp/lab-datasets/bonemarrow-tcell-dep-multiome/cr-arc-results'
+output_dir = '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/tcell-multiome-data'
+dir.create(sprintf("%s/ArchR", output_dir))
+setwd(sprintf("%s/ArchR", output_dir))
+inputFiles <- c(sprintf("%s/rep1/atac_fragments.tsv.gz", data_dir)
+              , sprintf("%s/rep2/atac_fragments.tsv.gz", data_dir))
+names(inputFiles) <- c('tcell_dep_multiome_1', 'tcell_dep_multiome_2'
                        )
 
 # Create Arrow files
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
-  filterTSS = 1, #Dont set this too high because you can always increase later
-  filterFrags =3000, 
+  minTSS = 1,
+ # Dont set this too high because you can always increase later
+  minFrags =3000, 
   addTileMat = TRUE,
   addGeneScoreMat = FALSE,
   excludeChr = c('chrM'),
-  removeFilteredCells = TRUE
+ # force = TRUE
 )
-
-
+#output_dir = sprintf("%s/ArchR", output_dir)
+#ArrowFiles = c(sprintf("%s/NA.arrow", output_dir), sprintf("%s/tcell_dep_multiome_1.arrow", output_dir), sprintf("%s/tcell_dep_multiome_2.arrow", output_dir), sprintf("%s/tcell_dep_multiome.arrow", output_dir))
 # Create project
 proj_name <- "temp"
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = proj_name,
-  copyArrows = FALSE
+  copyArrows = TRUE,
 )
 
 
 # Subset of cells determined in RNA
 # Multiome
-multiome_cells = read.csv(sprintf("%s/pbmc_multiome_cells.csv", data_dir), stringsAsFactors=FALSE)[,2]
+barcode_dir <- '/fh/fast/setty_m/grp/lab-datasets/bonemarrow-tcell-dep-multiome'
+multiome_cells = read.csv(sprintf("%s/cell_barcodes.csv", barcode_dir), stringsAsFactors=FALSE)[,1]
 multiome_cells <- intersect(multiome_cells, getCellNames(proj))
 
 # Project 
-proj_name = "pbmc_multiome_atac"
-proj <- subsetArchRProject(proj, multiome_cells, proj_name)
+proj_name = "tcell-dep_multiome_atac"
+proj <- subsetArchRProject(proj, multiome_cells, proj_name, force = TRUE)
 
 
 
