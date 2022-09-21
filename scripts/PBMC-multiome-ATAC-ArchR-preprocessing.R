@@ -28,8 +28,7 @@ ArrowFiles <- createArrowFiles(
   minFrags =3000, 
   addTileMat = TRUE,
   addGeneScoreMat = FALSE,
-  excludeChr = c('chrM'),
- # force = TRUE
+  excludeChr = c('chrM')
 )
 #output_dir = sprintf("%s/ArchR", output_dir)
 #ArrowFiles = c(sprintf("%s/NA.arrow", output_dir), sprintf("%s/tcell_dep_multiome_1.arrow", output_dir), sprintf("%s/tcell_dep_multiome_2.arrow", output_dir), sprintf("%s/tcell_dep_multiome.arrow", output_dir))
