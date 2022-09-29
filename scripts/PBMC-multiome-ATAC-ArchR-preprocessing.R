@@ -1,8 +1,8 @@
 library(ArchR)
 set.seed(1)
-
+system2("ml", "MACS2/2.2.6-foss-2019b-Python-3.7.4")
 # Configure
-addArchRThreads(threads = 12) 
+addArchRThreads(threads = 12)
 addArchRGenome('hg38')
 
 
@@ -20,36 +20,37 @@ names(inputFiles) <- c('tcell_dep_multiome_1', 'tcell_dep_multiome_2'
                        )
 
 # Create Arrow files
-ArrowFiles <- createArrowFiles(
-  inputFiles = inputFiles,
-  sampleNames = names(inputFiles),
-  minTSS = 1,
+#ArrowFiles <- createArrowFiles(
+#  inputFiles = inputFiles,
+#  sampleNames = names(inputFiles),
+#  minTSS = 1,
  # Dont set this too high because you can always increase later
-  minFrags =3000, 
-  addTileMat = TRUE,
-  addGeneScoreMat = FALSE,
-  excludeChr = c('chrM')
-)
+#  minFrags =3000, 
+#  addTileMat = TRUE,
+#  addGeneScoreMat = FALSE,
+#  excludeChr = c('chrM')
+#)
 #output_dir = sprintf("%s/ArchR", output_dir)
 #ArrowFiles = c(sprintf("%s/NA.arrow", output_dir), sprintf("%s/tcell_dep_multiome_1.arrow", output_dir), sprintf("%s/tcell_dep_multiome_2.arrow", output_dir), sprintf("%s/tcell_dep_multiome.arrow", output_dir))
 # Create project
-proj_name <- "temp"
-proj <- ArchRProject(
-  ArrowFiles = ArrowFiles, 
-  outputDirectory = proj_name,
-  copyArrows = TRUE,
-)
+#proj_name <- "temp"
+#proj <- ArchRProject(
+  #ArrowFiles = ArrowFiles, 
+  #outputDirectory = proj_name,
+  #copyArrows = FALSE,
+#)
 
 
 # Subset of cells determined in RNA
 # Multiome
-barcode_dir <- '/fh/fast/setty_m/grp/lab-datasets/bonemarrow-tcell-dep-multiome'
-multiome_cells = read.csv(sprintf("%s/cell_barcodes.csv", barcode_dir), stringsAsFactors=FALSE)[,1]
-multiome_cells <- intersect(multiome_cells, getCellNames(proj))
-
+#barcode_dir <- '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/data'
+#multiome_cells = read.csv(sprintf("%s/tcell-dep_multiome_cells.csv", barcode_dir), stringsAsFactors=FALSE)[,2]
+#multiome_cells <- intersect(multiome_cells, getCellNames(proj))
+proj = loadArchRProject("/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/tcell-multiome-data/ArchR/tcell-dep_multiome_atac")
 # Project 
-proj_name = "tcell-dep_multiome_atac"
-proj <- subsetArchRProject(proj, multiome_cells, proj_name, force = TRUE)
+#proj_name = "tcell-dep_multiome_atac"
+#proj <- subsetArchRProject(proj, multiome_cells, proj_name, force = FALSE)
+
 
 
 
@@ -67,17 +68,19 @@ var_features <- proj@reducedDims[["IterativeLSI"]]$LSIFeatures
 chrs <- getChromSizes(proj)
 var_features_gr <- GRanges(var_features$seqnames, IRanges(var_features$start, var_features$start + 500))
 blacklist <- setdiff(chrs, var_features_gr)
-proj <- addGeneScoreMatrix(proj, matrixName='GeneScoreMatrix', force=TRUE, blacklist=blacklist)
+#proj <- addGeneScoreMatrix(proj, matrixName='GeneScoreMatrix', blacklist=blacklist, force=TRUE)
 
 
 
 # Peaks 
-proj <- addClusters(input = proj, reducedDims = "IterativeLSI")
-proj <- addGroupCoverages(proj, maxFragmentLength=147)
-proj <- addReproduciblePeakSet(proj)
+#proj <- addClusters(input = proj,reducedDims = "IterativeLSI", force = TRUE)
+##removed deprecated argument maxFragmentLength
+#proj <- addGroupCoverages(proj, force = TRUE)
+#proj <- addReproduciblePeakSet(proj, force = FALSE)
 # Counts
-proj <- addPeakMatrix(proj, maxFragmentLength=147, ceiling=10^9)
-
+#proj <- addPeakMatrix(proj,ceiling=10^9, force = TRUE)
+##removed deprecated argument maxFragmentLength
+proj <- addImputeWeights(proj)
 # Save 
 proj <- saveArchRProject(ArchRProj = proj)
 
@@ -99,11 +102,18 @@ rownames(scores) <- rowData(gene.scores)$name
 write.csv(scores, sprintf('%s/export/gene_scores.csv', proj_name), quote=FALSE)
 
 
-
 # Peak counts
 peaks <- getPeakSet(proj)
 peak.counts <- getMatrixFromProject(proj, 'PeakMatrix')
 
+
+#imputed gene_scores
+imputed.weights <-getImputeWeights(proj)
+write.csv(imputed.weights, sprintf('%s/export/imputed_weights.csv', proj_name), quote=FALSE)
+imputed_scores <- imputeMatrix(mat = assay(gene.scores), imputeWeights = imputed.weights)
+write.csv(imputed_scores, sprintf('%s/export/imputed_scores.csv', proj_name), quote=FALSE)
+
+scores <-assays(gene.scores)
 # Reorder peaks 
 # Chromosome order
 chr_order <- sort(seqlevels(peaks))
