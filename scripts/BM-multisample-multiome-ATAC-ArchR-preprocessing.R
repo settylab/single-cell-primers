@@ -1,33 +1,47 @@
 library(ArchR)
 set.seed(1)
 
-# Number of threads and gnome
-num_threads <- 1
-genome <- 'hg19'
-
 # Configure
-addArchRThreads(threads = num_threads) 
-addArchRGenome(genome)
+addArchRThreads(threads = 1) 
+addArchRGenome('hg38')
 
 
 # ################################################################################################
 # Arrow files and project 
 
 # Input files
-data_dir = <Directory containing the ATAC fragments file>
-setwd(sprintf("%s/ArchR", data_dir))
-inputFiles <- c(sprintf("%s/atac_pbmc_10k_nextgem_fragments.tsv.gz", data_dir)
+# data_dir = <Directory containing the ATAC fragments file>
+data_dir = '/fh/fast/setty_m/user/msetty/repositories/single-cell-primers/notebooks/multi-sample-multiome/'
+inputFiles <- c(
+    sprintf("%s/rep1/atac_fragments.tsv.gz", data_dir),
+    sprintf("%s/rep2/atac_fragments.tsv.gz", data_dir)
               )
-names(inputFiles) <- c(
-    'pbmc_10k_atac'
-    )
+samples <- c('bm_multiome_rep1', 'bm_multiome_rep2')
+names(inputFiles) <- c(samples)
 
-# Create Arrow files
+# Subset of cells determined in RNA
+# Multiome
+# multiome_path = <Directory where multiome results were exported>
+multiome_path = 'multi-sample-multiome/'
+multiome_cells = read.csv(sprintf("%s/bm_multiome_cells.csv", multiome_path), stringsAsFactors=FALSE)[,2]
+valid_barcodes = list()
+for (sample in samples){
+    valid_barcodes[[sample]] = gsub('.*#', '', multiome_cells[grep(sample, multiome_cells)])
+}
+
+dir.create(sprintf("%s/ArchR", data_dir))
+setwd(sprintf("%s/ArchR", data_dir))
+
+
+# Create Arrow files 
+# Note that the TSS and Frags filter might result in some cells not being included. 
+# Set these to 0 if you would like all cells to included.
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
-  minTSS = 10, # Be careful about the minTSS and minFrags parameters. Start with 1, and 500
-  minFrags = 3000, 
+  minTSS = 1, 
+  minFrags = 500, 
+  validBarcodes = valid_barcodes,
   addTileMat = TRUE,
   addGeneScoreMat = FALSE,
   excludeChr = c('chrM'),
@@ -35,7 +49,7 @@ ArrowFiles <- createArrowFiles(
 
 
 # Create project
-proj_name <- "pbmc_10x_atac"
+proj_name <- "bm_multiome_atac"
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = proj_name,
