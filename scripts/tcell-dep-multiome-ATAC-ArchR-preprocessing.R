@@ -1,19 +1,19 @@
 library(ArchR)
 library(parallel)
+library(GenomicFeatures)
+library(org.Hs.eg.db)
+library(GenomicRanges)
+library(plyranges)
+
 set.seed(1)
-#system("ml MACS2/2.2.6-foss-2019b-Python-3.7.4")
+
 # Configure
-addArchRThreads(threads = 12)
+addArchRThreads(threads = 1)
 addArchRGenome('hg38')
 
 
 # ################################################################################################
 # Arrow files and project 
-
-# Input files
-#data_dir = '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/data/ArchR'
-#output_dir = '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/tcell-multiome-data'
-#setwd(data_dir)
 
 # Input files
 data_dir = '/fh/fast/setty_m/grp/lab-datasets/bonemarrow-tcell-dep-multiome'
@@ -22,62 +22,66 @@ output_dir = '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers'
 inputFiles <- c(
     sprintf("%s/cr-arc-results/rep1/atac_fragments.tsv.gz", data_dir),
     sprintf("%s/cr-arc-results/rep2/atac_fragments.tsv.gz", data_dir)
-              )
+             )
 sample <- c('rep1', 'rep2')
 names(inputFiles) <- sample
 
-# Subset of cells detcrmined in RNA
+# Subset of cells determined in RNA
 # Multiome
 multiome_path =  sprintf("%s/data", output_dir)
 valid_barcodes = list()
-rep1 = read.csv(sprintf("%s/tcell-dep_atac_cells_rep1.csv", multiome_path), stringsAsFactors = FALSE)[,1]
-valid_barcodes[[1]] = rep1
-rep2 = read.csv(sprintf("%s/tcell-dep_atac_cells_rep2.csv", multiome_path), stringsAsFactors = FALSE)[,1]
-valid_barcodes[[2]] = rep2
-#valid_barcodes = getValidBarcodes(c(sprintf("%s/rep1_barcodes.csv", multiome_path), sprintf("%s/rep2_barcodes.csv", multiome_path)), sampleNames = c("rep1", "rep2"))
+rep1 = read.csv(sprintf("%s/tcell-dep_atac_cells_rep1.csv", multiome_path), stringsAsFactors = FALSE)[,2]
+valid_barcodes[['rep1']] = rep1
+rep2 = read.csv(sprintf("%s/tcell-dep_atac_cells_rep2.csv", multiome_path), stringsAsFactors = FALSE)[,2]
+valid_barcodes[['rep2']] = rep2
+##list item names must be replicate names. Each CSV file needs a header line. barcodes should not contain any replicate names.
 setwd(sprintf("%s/ArchR", output_dir))
-ArrowFiles <- createArrowFiles(
-  inputFiles = inputFiles,
-  sampleNames = names(inputFiles),
-  #minTSS = 1, 
-  #minFrags = 500, 
-  validBarcodes = valid_barcodes,
-  addTileMat = TRUE,
-  addGeneScoreMat = FALSE,
-  excludeChr = c('chrM'),
-  force = FALSE
-)
-#proj = loadArchRProject(data_dir+ 'tcell_dep')
-#proj_name <- "temp"
-#proj <- ArchRProject(
-#  ArrowFiles = ArrowFiles, 
-#  outputDirectory = proj_name,
-#  copyArrows = FALSE
-#)
 
+
+db <- makeTxDbFromGFF(file = '/fh/fast/setty_m/grp/tools/cellranger/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/genes/genes.gtf.gz', format= 'gtf', organism = 'Homo sapiens')
+
+annotation <- createGeneAnnotation(TxDb = db, OrgDb = org.Hs.eg.db)
+annotation_genes_filtered = annotation$genes
+annotation_genes_filtered <- annotation_genes_filtered %>%
+    filter(seqnames %in% chrs)
+chrs <- c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")
 
 # Create Arrow files 
 # Note that the TSS and Frags filter might result in some cells not being included. 
 # Set these to 0 if you would like all cells to included.
 
-#multiome_cells <- intersect(multiome_cells, getCellNames(proj))
+ArrowFiles <- createArrowFiles(
+  inputFiles = inputFiles,
+  sampleNames = names(inputFiles),
+  minTSS = 0, 
+  minFrags = 0, 
+  validBarcodes = valid_barcodes,
+  geneAnnotation = annotation,
+  addTileMat = TRUE,
+  addGeneScoreMat = FALSE,
+  excludeChr = c('chrM'),
+  force = FALSE
+)
 
-#proj_name <- "tcell_atac"
-#proj <- ArchRProject(
-#  ArrowFiles = ArrowFiles, 
-#  outputDirectory = proj_name,
-#  copyArrows = FALSE,
-#)
+proj_name <- "tcell_dep_ncrna"
+proj <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = proj_name,
+  copyArrows = FALSE,
+)
 
 
-proj <- loadArchRProject(sprintf("%s/ArchR/tcell_atac", output_dir))
+n_cells = nCells(proj)
+print(sprintf("Number of total cells in project: %s", n_cells))
+proj <- saveArchRProject(ArchRProj = proj)
+
 # ################################################################################################
 # PReprocesing
 
-# SVD, Clustering, UMAP\
-fun <- function(){
+# SVD, Clustering, UMAP
+
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", 
-                       name = "IterativeLSI", scaleDims=FALSE, force=FALSE, varFeatures=100000)
+                       name = "IterativeLSI", scaleDims=TRUE, force=FALSE, outlierQuantiles = NULL) #maybe remove outlier quantiles
 var_features <- proj@reducedDims[["IterativeLSI"]]$LSIFeatures
 
 # GEne scores with selected features
@@ -86,48 +90,42 @@ chrs <- getChromSizes(proj)
 var_features_gr <- GRanges(var_features$seqnames, IRanges(var_features$start, var_features$start + 500))
 blacklist <- setdiff(chrs, var_features_gr)
 
-proj <- addGeneScoreMatrix(proj, matrixName='GeneScoreMatrix', threads = 1, force = TRUE)
-
+zproj <- addGeneScoreMatrix(proj, matrixName='GeneScoreMatrix', genes = annotation_genes_filtered, threads = 1, force = TRUE)
 
 
 # Peaks 
-proj <- addClusters(input = proj, maxFragmentLength = 147, reducedDims = "IterativeLSI", force = FALSE)
-proj <- addGroupCoverages(proj, force = FALSE, threads = 1)
-proj <- addReproduciblePeakSet(proj, force = FALSE)
+proj <- addClusters(input = proj,reducedDims = "IterativeLSI", force = TRUE)
+proj <- addGroupCoverages(proj, maxFragmentLength = 147, force = TRUE, threads = 1)
+proj <- addReproduciblePeakSet(proj, force = TRUE)
 # Counts
 proj <- addPeakMatrix(proj,ceiling=10^9, maxFragmentLength = 147, force = TRUE)
 
-
-#imputation
-proj <- addImputeWeights(proj)
+#UMAP
+proj <- addUMAP(proj)
 
 # ChromVAR
-
-#system(sprintf("rm %s/tcell_dep/Background-Peaks.rds", data_dir))
-proj <- addBgdPeaks(proj,method = 'chromVAR', force = TRUE)
-proj <- addMotifAnnotations(ArchRProj= proj, motifSet="cisbp", name="Motif", force=TRUE)
-proj <- addDeviationsMatrix(ArchRProj= proj, peakAnnotation="Motif", threads=1, force=TRUE)
-
-
-
-## chromvar
-
-
+proj <- addMotifAnnotations(ArchRProj = proj, motifSet = "cisbp", name = "Motif")
+proj <- addBgdPeaks(proj)
+proj <- addDeviationsMatrix(
+  ArchRProj = proj, 
+  peakAnnotation = "Motif",
+  force = TRUE
+)
 
 # Motif ranking
 var_deviations <- getVarDeviations(proj, name = "MotifMatrix", plot = FALSE)
 markerMotifs <- sprintf("z:%s", var_deviations$name)
 warnings()
+
 # Motif scores
 motifScores <- ArchR:::.getMatrixValues(proj, name = markerMotifs, matrixName = 'MotifMatrix', log2Norm = FALSE)
+
 # Save 
 proj <- saveArchRProject(ArchRProj = proj)
 
 
-
-}
 # ################################################################################################
-proj_name = sprintf("%s/ArchR/tcell_atac", output_dir)
+proj_name = sprintf("%s/ArchR/tcell_dep_ncrna", output_dir)
 # Export
 dir.create(sprintf("%s/export", proj_name))
 write.csv(motifScores, sprintf('%s/export/motif_scores.csv', proj_name), quote=FALSE)
@@ -141,9 +139,10 @@ write.csv(getCellColData(proj), sprintf('%s/export/cell_metadata.csv', proj_name
 # Gene scores
 gene.scores <- getMatrixFromProject(proj)
 scores <- assays(gene.scores)[['GeneScoreMatrix']]
-scores <- as.matrix(scores)
-rownames(scores) <- rowData(gene.scores)$name
-write.csv(scores, sprintf('%s/export/gene_scores.csv', proj_name), quote=FALSE)
+dir.create(sprintf("%s/export/gene_scores", proj_name))
+writeMM(scores, sprintf('%s/export/gene_scores/scores.mtx', proj_name))
+write.csv(colnames(scores), sprintf('%s/export/gene_scores/cells.csv', proj_name), quote=FALSE)
+write.csv(rowData(gene.scores)$name, sprintf('%s/export/gene_scores/genes.csv', proj_name), quote=FALSE)
 
 
 # Peak counts
@@ -151,14 +150,12 @@ peaks <- getPeakSet(proj)
 peak.counts <- getMatrixFromProject(proj, 'PeakMatrix')
 
 
-#imputed gene_scores
-imputed.weights <-getImputeWeights(proj)
-write.csv(imputed.weights, sprintf('%s/export/imputed_weights.csv', proj_name), quote=FALSE)
-imputed_scores <- imputeMatrix(mat = assay(gene.scores), imputeWeights = imputed.weights)
-write.csv(imputed_scores, sprintf('%s/export/imputed_scores.csv', proj_name), quote=FALSE)
-
 scores <-assays(gene.scores)
 # chromVar
+motifScores <-   getMatrixFromProject(proj, 'MotifMatrix')
+scores <- as.data.frame(assays(motifScores)[['z']])
+write.csv(scores, quote=FALSE,
+         sprintf("%s/export/chromvar_motif_scores.csv", proj_name))
 var_dev<- getVarDeviations(proj, name = "MotifMatrix", plot = FALSE)
 write.csv(var_dev, sprintf("%s/export/deviations.csv", proj_name), quote = FALSE)
 # Reorder peaks 
@@ -177,4 +174,4 @@ write.csv(colnames(peak.counts), sprintf('%s/export/peak_counts/cells.csv', proj
 names(reordered_features) <- sprintf("Peak%d", 1:length(reordered_features))
 write.csv(as.data.frame(reordered_features), sprintf('%s/export/peak_counts/peaks.csv', proj_name), quote=FALSE)
 
-
+proj <- saveArchRProject(ArchRProj = proj)

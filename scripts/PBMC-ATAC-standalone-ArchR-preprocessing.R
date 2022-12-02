@@ -10,7 +10,7 @@ addArchRGenome('hg19')
 # Arrow files and project 
 
 # Input files
-data_dir = <Directory containing the ATAC fragments file>
+data_dir = "/fh/fast/setty_m" #redirect tocorrect dir
 setwd(sprintf("%s/ArchR", data_dir))
 inputFiles <- c(sprintf("%s/atac_pbmc_10k_nextgem_fragments.tsv.gz", data_dir)
               )

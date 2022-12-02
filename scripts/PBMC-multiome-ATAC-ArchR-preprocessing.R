@@ -10,49 +10,53 @@ addArchRGenome('hg38')
 # Arrow files and project 
 
 # Input files
-data_dir = '/fh/fast/setty_m/grp/lab-datasets/bonemarrow-tcell-dep-multiome/cr-arc-results'
-output_dir = '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/tcell-multiome-data'
-dir.create(sprintf("%s/ArchR", output_dir))
-setwd(sprintf("%s/ArchR", output_dir))
-inputFiles <- c(sprintf("%s/rep1/atac_fragments.tsv.gz", data_dir)
-              , sprintf("%s/rep2/atac_fragments.tsv.gz", data_dir))
-names(inputFiles) <- c('tcell_dep_multiome_1', 'tcell_dep_multiome_2'
-                       )
+data_dir = '/fh/fast/setty_m/grp/lab-datasets/bonemarrow-tcell-dep-multiome'
+output_dir = '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers'
+#dir.create(sprintf("%s/ArchR", output_dir))
+inputFiles <- c(
+    sprintf("%s/cr-arc-results/rep1/atac_fragments.tzv.gz", data_dir),
+    sprintf("%s/cr-arc-results/rep2/atac_fragments.tzv.gz", data_dir)
+              )
+sample <- c('rep1', 'rep2')
+names(inputFiles) <- sample
 
-# Create Arrow files
-#ArrowFiles <- createArrowFiles(
-#  inputFiles = inputFiles,
-#  sampleNames = names(inputFiles),
-#  minTSS = 1,
- # Dont set this too high because you can always increase later
-#  minFrags =3000, 
-#  addTileMat = TRUE,
-#  addGeneScoreMat = FALSE,
-#  excludeChr = c('chrM')
-#)
-#output_dir = sprintf("%s/ArchR", output_dir)
-#ArrowFiles = c(sprintf("%s/NA.arrow", output_dir), sprintf("%s/tcell_dep_multiome_1.arrow", output_dir), sprintf("%s/tcell_dep_multiome_2.arrow", output_dir), sprintf("%s/tcell_dep_multiome.arrow", output_dir))
-# Create project
-#proj_name <- "temp"
-#proj <- ArchRProject(
-  #ArrowFiles = ArrowFiles, 
-  #outputDirectory = proj_name,
-  #copyArrows = FALSE,
-#)
-
-
-# Subset of cells determined in RNA
+# Subset of cells detcrmined in RNA
 # Multiome
-#barcode_dir <- '/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/data'
-#multiome_cells = read.csv(sprintf("%s/tcell-dep_multiome_cells.csv", barcode_dir), stringsAsFactors=FALSE)[,2]
-#multiome_cells <- intersect(multiome_cells, getCellNames(proj))
-proj = loadArchRProject("/fh/fast/setty_m/user/cjordan2/repositories/single-cell-primers/tcell-multiome-data/ArchR/tcell-dep_multiome_atac")
-# Project 
-#proj_name = "tcell-dep_multiome_atac"
-#proj <- subsetArchRProject(proj, multiome_cells, proj_name, force = FALSE)
+multiome_path =  data_dir
+multiome_cells = read.csv(sprintf("cell_barcodes.csv", multiome_path), stringsAsFactors=FALSE)[,1]
+#valid_barcodes = list()
+#valid_barcodes[[sample]] = multiome_cells
+setwd(sprintf("%s/ArchR", output_dir))
+#proj = loadArchRProject(data_dir+ 'tcell_dep')
+proj_name <- "temp"
+proj <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = proj_name,
+  copyArrows = FALSE
+)
 
 
+# Create Arrow files 
+# Note that the TSS and Frags filter might result in some cells not being included. 
+# Set these to 0 if you would like all cells to included.
+ArrowFiles <- createArrowFiles(
+  inputFiles = inputFiles,
+  sampleNames = names(inputFiles),
+  #minTSS = 1, 
+  #minFrags = 500, 
+  validBarcodes = valid_barcodes,
+  addTileMat = TRUE,
+  addGeneScoreMat = FALSE,
+  excludeChr = c('chrM'),
+)
+multiome_cells <- intersect(multiome_cells, getCellNames(proj))
 
+proj_name <- "tcell_dep"
+proj <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = proj_name,
+  copyArrows = FALSE
+)
 
 
 # ################################################################################################
