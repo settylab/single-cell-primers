@@ -11,6 +11,7 @@ addArchRGenome('hg38')
 
 # Input files
 data_dir = <Directory containing the ATAC fragments file>
+gtf_dir = <Directory containing CellRanger GTF file>
 dir.create(sprintf("%s/ArchR", data_dir))
 setwd(sprintf("%s/ArchR", data_dir))
 inputFiles <- c(
@@ -26,7 +27,15 @@ multiome_cells = read.csv(sprintf("%s/pbmc_multiome_cells.csv", multiome_path), 
 valid_barcodes = list()
 valid_barcodes[[sample]] = multiome_cells
 
+db <- makeTxDbFromGFF(file = sprintf('%s/genes.gtf.gz', gtf_dir, format= 'gtf', organism = 'Homo sapiens')
 
+annotation <- createGeneAnnotation(TxDb = db, OrgDb = org.Hs.eg.db)
+chrs <- c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
+          "chr12", "chr13", "chr14", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", 
+          "chrX", "chrY")
+annotation_genes_filtered <- annotation$genes
+annotation_genes_filtered <- annotation_genes_filtered %>%
+    filter(seqnames %in% chrs)
 # Create Arrow files 
 # Note that the TSS and Frags filter might result in some cells not being included. 
 # Set these to 0 if you would like all cells to included.
@@ -55,7 +64,7 @@ proj <- ArchRProject(
 # Preprocesing
 
 # Gene scores
-proj <- addGeneScoreMatrix(proj, matrixName='GeneScoreMatrix')
+proj <- addGeneScoreMatrix(proj, matrixName='GeneScoreMatrix', genes = annotation_genes_filtered, threads = 1)
 
 # IterativeLSI
 proj <- addIterativeLSI(ArchRProj = proj, useMatrix = "TileMatrix", name = "IterativeLSI")
