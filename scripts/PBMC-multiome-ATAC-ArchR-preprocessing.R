@@ -19,8 +19,10 @@ addArchRGenome('hg38') # reference genome must be changed for data from a differ
 # Arrow files and project 
 
 # Input files
-data_dir = <Directory containing the ATAC fragments file>
-gtf_dir = <Directory containing CellRanger GTF file>
+# data_dir = <Directory containing the ATAC fragments file>
+data_dir = '/fh/fast/setty_m/grp/public-datasets/10x_pbmc_10k_multiome/'
+# gtf_dir = <Directory containing CellRanger GTF file>
+gtf_dir = "/fh/fast/setty_m/grp/tools/cellranger/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/genes/"
 dir.create(sprintf("%s/ArchR", data_dir))
 setwd(sprintf("%s/ArchR", data_dir))
 inputFiles <- c(
@@ -31,20 +33,21 @@ names(inputFiles) <- c(sample)
 
 # Subset of cells determined in RNA
 # Multiome
-multiome_path = <Directory where multiome results were exported>
+# multiome_path = <Directory where multiome results were exported>
+multiome_path = data_dir
 multiome_cells = read.csv(sprintf("%s/pbmc_multiome_cells.csv", multiome_path), stringsAsFactors=FALSE)[,2]
 valid_barcodes = list()
 valid_barcodes[[sample]] = multiome_cells
 
 # Make custom gene annotations and filter to only standard chromosomes 
-db <- makeTxDbFromGFF(file = sprintf('%s/genes.gtf.gz', gtf_dir, format= 'gtf', organism = 'Homo sapiens') #update file name and organism if needed
+db <- makeTxDbFromGFF(file = sprintf('%s/genes.gtf.gz', gtf_dir), format= 'gtf', organism = 'Homo sapiens') #update file name and organism if needed
 annotation <- createGeneAnnotation(TxDb = db, OrgDb = org.Hs.eg.db) #update orgDB if needed
 annotation_genes_filtered <- unique(annotation$genes[grepl("chr[[:digit:]XY]",annotation$gene)]) #Filters to only standard chromosomes, minus ChrM. 
 seqlevels(annotation_genes_filtered) <- seqlevelsInUse(annotation_genes_filtered)
     
 # Create Arrow files 
 # Note that the TSS and Frags filter might result in some cells not being included. 
-# Set these to 0 if you would like all cells to included.
+# Set these to 0 if you would like all cells to included from the RNA included
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
