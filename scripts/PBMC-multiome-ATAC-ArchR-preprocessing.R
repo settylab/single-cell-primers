@@ -11,7 +11,7 @@ addArchRGenome('hg38') # reference genome must be changed for data from a differ
 #Update line 22 with the path to your data files.
 #Update line 23 with the path to the GTF file used for CellRanger processing of your sample
 #Update line 27 with the ATAC fragment file name
-#Update line 26 with the name of the sample
+#Update line 29 with the name of the sample
 #update line 34 with path to multiome cell barcode file, line 35 with name of file 
 #Update line 40 with name of GTF file used for CellRanger and correct organism
 #Update line 41 with correct OrgDb for organism
@@ -19,10 +19,8 @@ addArchRGenome('hg38') # reference genome must be changed for data from a differ
 # Arrow files and project 
 
 # Input files
-# data_dir = <Directory containing the ATAC fragments file>
-data_dir = '/fh/fast/setty_m/grp/public-datasets/10x_pbmc_10k_multiome/'
-# gtf_dir = <Directory containing CellRanger GTF file>
-gtf_dir = "/fh/fast/setty_m/grp/tools/cellranger/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/genes/"
+data_dir = <Directory containing the ATAC fragments file>
+gtf_dir = <Directory containing CellRanger GTF file>
 dir.create(sprintf("%s/ArchR", data_dir))
 setwd(sprintf("%s/ArchR", data_dir))
 inputFiles <- c(
@@ -33,8 +31,7 @@ names(inputFiles) <- c(sample)
 
 # Subset of cells determined in RNA
 # Multiome
-# multiome_path = <Directory where multiome results were exported>
-multiome_path = data_dir
+multiome_path = <Directory where multiome results were exported>
 multiome_cells = read.csv(sprintf("%s/pbmc_multiome_cells.csv", multiome_path), stringsAsFactors=FALSE)[,2]
 valid_barcodes = list()
 valid_barcodes[[sample]] = multiome_cells
