@@ -5,6 +5,7 @@ set.seed(1)
 num_threads <- 1
 genome <- 'hg19'
 
+
 # Configure
 addArchRThreads(threads = num_threads) 
 addArchRGenome(genome)
@@ -13,35 +14,51 @@ addArchRGenome(genome)
 # ################################################################################################
 # Arrow files and project 
 
+# project name
+proj_name <- "pbmc_10x_atac"
+
 # Input files
-data_dir = "/fh/fast/setty_m" #redirect tocorrect dir
-setwd(sprintf("%s/ArchR", data_dir))
+data_dir = "/fh/fast/setty_m/" #redirect tocorrect dir
+
 inputFiles <- c(sprintf("%s/atac_pbmc_10k_nextgem_fragments.tsv.gz", data_dir)
               )
 names(inputFiles) <- c(
     'pbmc_10k_atac'
     )
+# arrow file settings
+# Be careful about the minTSS and minFrags parameters. Start with 1, and 500
+minTSS = 1
+minFrags = 500
+excludeChr = c('chrM')
+
+
+# No user input below this line
+# ################################################################################################
+
+## create dir if not present
+dir.create(sprintf("%s/ArchR", data_dir))
+# change to workibg dir
+setwd(sprintf("%s/ArchR", data_dir))
 
 # Create Arrow files
 ArrowFiles <- createArrowFiles(
   inputFiles = inputFiles,
   sampleNames = names(inputFiles),
-  minTSS = 10, # Be careful about the minTSS and minFrags parameters. Start with 1, and 500
-  minFrags = 3000, 
+  minTSS = minFrags, 
+  minFrags = minFrags, 
+  geneAnnotation = annotation,
   addTileMat = TRUE,
   addGeneScoreMat = FALSE,
-  excludeChr = c('chrM'),
+  excludeChr = excludeChr
 )
 
-
 # Create project
-proj_name <- "pbmc_10x_atac"
+
 proj <- ArchRProject(
   ArrowFiles = ArrowFiles, 
   outputDirectory = proj_name,
   copyArrows = FALSE
 )
-
 
 # ################################################################################################
 # Preprocesing
@@ -89,7 +106,7 @@ write.csv(rowData(gene.scores)$name, sprintf('%s/export/gene_scores/genes.csv', 
 # Peak counts
 peaks <- getPeakSet(proj)
 peak.counts <- getMatrixFromProject(proj, 'PeakMatrix')
-
+git
 # Reorder peaks 
 # Chromosome order [This mess is necessary since the peaks get sorted by lexicographical order]
 chr_order <- sort(seqlevels(peaks))
